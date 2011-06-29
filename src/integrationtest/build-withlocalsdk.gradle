@@ -44,20 +44,6 @@ subprojects {
         mysdk (module:"flex4", revision:"4.0.0.14159")
       }
     }
-
-    // This is an example of Flex SDK specification via a flat folder-based dependency via the default directory .
-    dependencies { 
-      flexLocalSDKRepo { 
-        mylocalsdk (module:"flex4.5", revision:"4.5.1.21328")
-      }
-    }
-
-    // This is an example of Flex SDK specification via a flat folder-based dependency where the directory is specified.
-    dependencies { 
-      flexLocalSDKRepo { 
-        mylocalsdk (module:"flex4.5", revision:"4.5.1.21328", dirs:"myotherlocalfolder")
-      }
-    }
 }
 
 
