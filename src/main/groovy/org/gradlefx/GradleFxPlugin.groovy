@@ -76,50 +76,37 @@ class GradleFxPlugin implements Plugin<Project> {
             addDependsOnOtherProjects()
             addDefaultArtifact()
         }
+
+         project.repositories {
+             // The fully open source SDK can be directly downloaded with no click-through 
+             // Download URL convention for OSS SDK (which contains player, ant, lib):
+             //  http://fpdownload.adobe.com/pub/flex/sdk/builds/flex4/flex_sdk_4.0.0.14159_mpl.zip
+             ivy {
+                 name = 'flexOSSSDKRepo'
+                 //artifactPattern "http://repo.mycompany.com/[organisation]/[module]/[revision]/[artifact]-[revision].[ext]"
+                 // module = "flex4"
+                 // revision = "4.0.0.14159"
+                 artifactPattern "http://fpdownload.adobe.com/pub/flex/sdk/builds/[module]/flex_sdk_[revision]_mpl.zip"
+             }
+
+             // Free but not open source SDK might use flat file layout repo
+             // Free but not open source SDK would be user-downloaded as a ZIP after the click through license into a sdkrepo/ directory
+             // that could contain more than one SDK zip in the original file name style.
+             flatDir {
+                 name = 'flexLocalSDKRepo'
+                 // module = "flex4"
+                 // revision = "4.0.0.14159"
+                 // Decided not to supply a default for now: dirs = 'flexsdkrepo'
+                 artifactPattern "${dirs}/[module]/flex_sdk_[revision].zip"
+                 // has no MPL (mozilla public license)
+             }
+         }
+
+         // TODO: Test if the SDK is already unzipped
+         // TODO: Unzip the SDK to a temp folder beneath the project (perhaps build/.flexsdk)
     }
 
-    // Download URL convention for OSS SDK (which contains player, ant, lib):
-    //  http://fpdownload.adobe.com/pub/flex/sdk/builds/flex4/flex_sdk_4.0.0.14159_mpl.zip
-    // For free, but not open source might use flat file layout repo
-    //  Open but not OSS would be user downloaded after the click through license into a sdksrepo/ directory.
 
-       repositories {
-            ivy {
-                name = 'flexOSSSDKRepo'
-                //artifactPattern "http://repo.mycompany.com/[organisation]/[module]/[revision]/[artifact]-[revision].[ext]"
-                // module = "flex4"
-                // revision = "4.0.0.14159"
-                artifactPattern "http://fpdownload.adobe.com/pub/flex/sdk/builds/[module]/flex_sdk_[revision]_mpl.zip"
-            }
-
-            flatDir {
-                name = 'flexLocalSDKRepo'
-                // Decided not to supply a default for now: dirs = 'flexsdkrepo'
-                // artifactPattern "http://fpdownload.adobe.com/pub/flex/sdk/builds/[module]/flex_sdk_[revision].zip"
-                // has no MPL (mozilla public license)
-            }
-        }
-
-       // TODO: Unzip the SDK to a folder
-       
-       // Default behavior is to get the FLEX_HOME environment variable
-       // and expect it contains a valid install with frameworks/ and ant/
-       //
-       // This alternate approach fetches the SDK from a dependency.
-       // This is an example of Flex SDK specification via a network-based dependency.
-       dependencies { 
-         flexOSSSDKRepo {
-           mysdk (module:"flex4", revision:"4.0.0.14159")
-         }
-       }
-
-       // This is an example of Flex SDK specification via a flat folder-based dependency.
-       dependencies { 
-         flexLocalSDKRepo { 
-           mylocalsdk (module:"flex4.5", revision:"4.5.1.21328")
-           mylocalsdk (module:"flex4.5", revision:"4.5.1.21328", dirs:"myotherlocalfolder")
-         }
-       }
 
     private void configureAnt() {
       //If the repository vectors are given register a artifact and unzip it to the local
