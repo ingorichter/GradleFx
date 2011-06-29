@@ -92,14 +92,14 @@ class GradleFxPlugin implements Plugin<Project> {
              // Free but not open source SDK might use flat file layout repo
              // Free but not open source SDK would be user-downloaded as a ZIP after the click through license into a sdkrepo/ directory
              // that could contain more than one SDK zip in the original file name style.
-             flatDir {
-                 name = 'flexLocalSDKRepo'
-                 // module = "flex4"
-                 // revision = "4.0.0.14159"
-                 // Decided not to supply a default for now: dirs = 'flexsdkrepo'
-                 artifactPattern "${dirs}/[module]/flex_sdk_[revision].zip"
-                 // has no MPL (mozilla public license)
-             }
+             // flatDir {
+             //     name = 'flexLocalSDKRepo'
+             //     // module = "flex4"
+             //     // revision = "4.0.0.14159"
+             //     // Decided not to supply a default for now: dirs = 'flexsdkrepo'
+             //     artifactPattern "${dirs}/[module]/flex_sdk_[revision].zip"
+             //     // has no MPL (mozilla public license)
+             // }
          }
 
          // TODO: Test if the SDK is already unzipped
