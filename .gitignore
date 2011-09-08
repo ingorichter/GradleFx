@@ -1,6 +1,8 @@
 .gradle
 .idea
+out
 build
 GradleFx.iml
 .orig
+.DS_Store
 
