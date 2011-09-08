@@ -21,7 +21,7 @@ import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ResolveException
 import org.gradlefx.FlexType
 
-class AbstractCompileTask extends DefaultTask {
+abstract class AbstractCompileTask extends DefaultTask {
 
     protected AbstractCompileTask() {
         initInputDirectory()
@@ -57,4 +57,14 @@ class AbstractCompileTask extends DefaultTask {
             }
         }
     }
+	
+	def handleBuildIfFailed(antResultProperty, antOutputProperty, taskName) {
+		if (ant.properties[antResultProperty] != '0') {
+			throw new Exception("${taskName} compilation failed: ${ant.properties[antOutputProperty]}\n")
+		}
+	}
+	
+	def showAntOutput(antOutput) {
+		println antOutput
+	}
 }

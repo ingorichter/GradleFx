@@ -29,6 +29,8 @@ import org.gradlefx.conventions.GradleFxConvention
 import org.gradlefx.tasks.CopyResources
 import org.gradlefx.tasks.HtmlWrapper
 import org.gradlefx.tasks.Publish
+import org.gradlefx.tasks.Test
+import org.gradlefx.tasks.TestCompile
 import org.gradlefx.tasks.factory.CompileTaskClassFactory
 import org.gradlefx.tasks.factory.CompileTaskClassFactoryImpl
 import org.slf4j.Logger
@@ -37,7 +39,9 @@ import org.slf4j.LoggerFactory
 class GradleFxPlugin implements Plugin<Project> {
 
     public static final String COMPILE_TASK_NAME = 'compile'
+	public static final String TEST_COMPILE_TASK_NAME = 'testCompile'
     public static final String BUILD_TASK_NAME = 'build'
+	public static final String TEST_TASK_NAME = 'test'
     public static final String PUBLISH_TASK_NAME = 'publish'
     public static final String COPY_RESOURCES_TASK_NAME = 'copyresources'
     public static final String CLEAN_TASK_NAME = 'clean'
@@ -67,55 +71,21 @@ class GradleFxPlugin implements Plugin<Project> {
         addCopyResources()
         addClean()
         addPublish()
+		addTestCompile()
+		addTest()
 
         //do these tasks in the afterEvaluate phase because they need property access
         project.afterEvaluate {
-            configureAnt()
+            configureAntWithFlex()
+			configureAntWithFlexUnit()
             addCompile(pluginConvention)
             addHtmlWrapper()
             addDependsOnOtherProjects()
             addDefaultArtifact()
         }
-
-         project.repositories {
-             // The fully open source SDK can be directly downloaded with no click-through 
-             // Download URL convention for OSS SDK (which contains player, ant, lib):
-             //  http://fpdownload.adobe.com/pub/flex/sdk/builds/flex4/flex_sdk_4.0.0.14159_mpl.zip
-             ivy {
-                 name = 'flexOSSSDKRepo'
-                 //artifactPattern "http://repo.mycompany.com/[organisation]/[module]/[revision]/[artifact]-[revision].[ext]"
-                 // module = "flex4"
-                 // revision = "4.0.0.14159"
-                 artifactPattern "http://fpdownload.adobe.com/pub/flex/sdk/builds/[module]/flex_sdk_[revision]_mpl.zip"
-             }
-
-             // Free but not open source SDK might use flat file layout repo
-             // Free but not open source SDK would be user-downloaded as a ZIP after the click through license into a sdkrepo/ directory
-             // that could contain more than one SDK zip in the original file name style.
-             // flatDir {
-             //     name = 'flexLocalSDKRepo'
-             //     // module = "flex4"
-             //     // revision = "4.0.0.14159"
-             //     // Decided not to supply a default for now: dirs = 'flexsdkrepo'
-             //     artifactPattern "${dirs}/[module]/flex_sdk_[revision].zip"
-             //     // has no MPL (mozilla public license)
-             // }
-         }
-
-         // TODO: Test if the SDK is already unzipped
-         // TODO: Unzip the SDK to a temp folder beneath the project (perhaps build/.flexsdk)
     }
 
-
-
     private void configureAnt() {
-      //If the repository vectors are given register a artifact and unzip it to the local
-      //project directory and set project.flexHome to that unzipped subdirectory
-      //unzip.exec() to either a permanent dot directory like _.flexsdk_ or a cleanable one like _build/flexsdk_
-      // Be specific in extraction to not expand the documentation, (asdoc) 
-      // ONLY extract frameworks/, ant/, lib/
-      //  
-
         project.ant.property(name: 'FLEX_HOME', value: project.flexHome)
         project.ant.property(name: 'FLEX_LIB', value: '${FLEX_HOME}/frameworks/libs')
         project.ant.property(name: 'FLEX_ANT', value: '${FLEX_HOME}/ant')
@@ -131,6 +101,17 @@ class GradleFxPlugin implements Plugin<Project> {
         }
     }
 
+	private void configureAntWithFlexUnit() {
+		if (project.flexUnit.home == null) return
+		project.ant.taskdef(resource: 'flexUnitTasks.tasks') {
+			classpath {
+				fileset(dir: project.flexUnit.home) {
+					include(name: project.flexUnit.antTasksJar)
+				}
+			}
+		}
+	}
+	
     private void addDefaultConfigurations() {
         project.configurations.add(DEFAULT_CONFIGURATION_NAME)
         project.configurations.add(INTERNAL_CONFIGURATION_NAME)
@@ -143,7 +124,7 @@ class GradleFxPlugin implements Plugin<Project> {
     private void addBuild() {
         DefaultTask buildTask = project.tasks.add(BUILD_TASK_NAME, DefaultTask)
         buildTask.setDescription("Assembles and tests this project.")
-        buildTask.dependsOn(COMPILE_TASK_NAME)
+        buildTask.dependsOn(TEST_TASK_NAME)
     }
 
     private void addCompile(GradleFxConvention pluginConvention) {
@@ -153,6 +134,20 @@ class GradleFxPlugin implements Plugin<Project> {
         Task compile = project.tasks.add(COMPILE_TASK_NAME, compileClass)
         compile.dependsOn(COPY_RESOURCES_TASK_NAME)
     }
+	
+	private void addTestCompile() {
+		Task testCompile = project.tasks.add(TEST_COMPILE_TASK_NAME, TestCompile)
+		testCompile.description = 'Compile the test runner SWF.'
+		testCompile.dependsOn(COMPILE_TASK_NAME)
+		testCompile.onlyIf{project.testClass != null}
+	}
+	
+	private void addTest() {
+		Task test = project.tasks.add(TEST_TASK_NAME, Test)
+		test.description = 'Run the FlexUnit tests.'
+		test.dependsOn(TEST_COMPILE_TASK_NAME)
+		test.onlyIf{project.testClass != null}
+	}
 
     private void addHtmlWrapper() {
         if (project.type == FlexType.swf) {
