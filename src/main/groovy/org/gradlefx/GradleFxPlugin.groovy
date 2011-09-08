@@ -35,6 +35,7 @@ import org.gradlefx.tasks.factory.CompileTaskClassFactory
 import org.gradlefx.tasks.factory.CompileTaskClassFactoryImpl
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.apache.ivy.plugins.resolver.URLResolver
 
 class GradleFxPlugin implements Plugin<Project> {
 
@@ -54,6 +55,7 @@ class GradleFxPlugin implements Plugin<Project> {
     public static final String MERGE_CONFIGURATION_NAME = 'merged'
     public static final String RSL_CONFIGURATION_NAME = 'rsl'
     public static final String TEST_CONFIGURATION_NAME = 'test'
+    public static final String FLEXSDK_CONFIGURATION_NAME = 'flexSDK'
 
     Logger log = LoggerFactory.getLogger('flex')
 
@@ -67,6 +69,9 @@ class GradleFxPlugin implements Plugin<Project> {
 
         addDefaultConfigurations()
 
+        addRepositories()
+        configureSourceSets(pluginConvention)
+
         addBuild()
         addCopyResources()
         addClean()
@@ -76,8 +81,16 @@ class GradleFxPlugin implements Plugin<Project> {
 
         //do these tasks in the afterEvaluate phase because they need property access
         project.afterEvaluate {
-            configureAntWithFlex()
+            if (isFlexHomeProvided()) {
+                log.info "Configure ant using the provided Flex SDK from ${project.flexHome}"
+                configureAntWithFlex()
+            }
+            else {
+                configureAnt(project)
+            }
+            
 			configureAntWithFlexUnit()
+
             addCompile(pluginConvention)
             addHtmlWrapper()
             addDependsOnOtherProjects()
@@ -85,20 +98,112 @@ class GradleFxPlugin implements Plugin<Project> {
         }
     }
 
+    private void addRepositories() {
+        def flexOSS = {
+            def resolver = new URLResolver()
+
+            resolver.with {
+                name = 'FlexOSS'
+                addArtifactPattern  'http://fpdownload.adobe.com/pub/flex/sdk/builds/[module]/flex_sdk_[revision]_mpl.[ext]'
+            }
+
+            resolver // Why this? Return resolver!
+        }
+
+        def flexUnitResolver = {
+            def resolver = new URLResolver()
+
+            resolver.with {
+                name = 'flexunit'
+                addArtifactPattern 'http://flexunit.digitalprimates.net:8080/job/[module]-Flex4.1/lastSuccessfulBuild/artifact/flexunit-4.1.0-8-4.1.0.16076.zip'
+            }
+
+            resolver // Why this? Return resolver
+        }
+        
+        project.repositories.add(flexOSS())
+        project.repositories.add(flexUnitResolver())
+
+        project.configurations.add(FLEXSDK_CONFIGURATION_NAME)
+    }
+
     private void configureAntWithFlex() {
         project.ant.property(name: 'FLEX_HOME', value: project.flexHome)
-        project.ant.property(name: 'FLEX_LIB', value: '${FLEX_HOME}/frameworks/libs')
-        project.ant.property(name: 'FLEX_ANT', value: '${FLEX_HOME}/ant')
-        project.ant.property(name: 'FLEX_ANTLIB', value: '${FLEX_ANT}/lib')
-        project.ant.property(name: 'FLEX_PLAYER_LIB', value: "\${FLEX_LIB}/player/${project.playerVersion}")
 
-        project.ant.taskdef(resource: 'flexTasks.tasks') {
-            classpath {
-                fileset(dir: '${FLEX_ANTLIB}') {
-                    include(name: 'flexTasks.jar')
-                }
-            }
-        }
+        project.repositories {
+             // The fully open source SDK can be directly downloaded with no click-through 
+             // Download URL convention for OSS SDK (which contains player, ant, lib):
+             //  http://fpdownload.adobe.com/pub/flex/sdk/builds/flex4/flex_sdk_4.0.0.14159_mpl.zip
+             ivy {
+                 name = 'flexOSSSDKRepo'
+                 //artifactPattern "http://repo.mycompany.com/[organisation]/[module]/[revision]/[artifact]-[revision].[ext]"
+                 // module = "flex4"
+                 // revision = "4.0.0.14159"
+                 // http://fpdownload.adobe.com/pub/flex/sdk/builds/flex4.5/flex_sdk_4.5.1.21328.zip
+                 // http://fpdownload.adobe.com/pub/flex/sdk/builds/flex4/flex_sdk_4.1.0.16076.zip
+                 // http://fpdownload.adobe.com/pub/flex/sdk/builds/flex3/flex_sdk_3.5.0.12683.zip
+                 artifactPattern "http://fpdownload.adobe.com/pub/flex/sdk/builds/[module]/flex_sdk_[revision]_mpl.[ext]"
+//                 artifactPattern "http://localhost/pub/flex/sdk/builds/[module]/flex_sdk_[revision]_mpl.[ext]"
+             }
+
+             // Free but not open source SDK might use flat file layout repo
+             // Free but not open source SDK would be user-downloaded as a ZIP after the click through license into a sdkrepo/ directory
+             // that could contain more than one SDK zip in the original file name style.
+             // flatDir {
+             //     name = 'flexLocalSDKRepo'
+             //     // module = "flex4"
+             //     // revision = "4.0.0.14159"
+             //     // Decided not to supply a default for now: dirs = 'flexsdkrepo'
+             //     artifactPattern "${dirs}/[module]/flex_sdk_[revision].zip"
+             //     // has no MPL (mozilla public license)
+             // }
+         }
+
+         // TODO: Test if the SDK is already unzipped
+         // TODO: Unzip the SDK to a temp folder beneath the project (perhaps build/.flexsdk)
+    }
+
+    def isFlexHomeProvided() {
+        return project.flexHome
+    }
+
+    private configureSourceSets(GradleFxConvention convention) {
+//        convention.sourceSets.main.srcDir { project.file("src") }
+    }
+
+    private void configureAnt(Project project) {
+      //If the repository vectors are given register a artifact and unzip it to the local
+      //project directory and set project.flexHome to that unzipped subdirectory
+      //unzip.exec() to either a permanent dot directory like _.flexsdk_ or a cleanable one like _build/flexsdk_
+      // Be specific in extraction to not expand the documentation, (asdoc) 
+      // ONLY extract frameworks/, ant/, lib/
+      //  
+      project.configurations.flexSDK.each { File file ->
+          def dir = file.name - '.zip'
+
+          def userHome = System.getProperty('user.home')
+
+          def destDir = "${userHome}/.gradle/flexSDK/${dir}"
+          if (! new File(destDir).exists()) {
+              log.info "Unzip Flex SDK to ${destDir}"
+              project.ant.unzip(src: file.absolutePath, dest: destDir)
+          }
+          
+          project.flexHome = destDir
+          project.ant.property(name: 'FLEX_HOME', value: destDir)
+          project.ant.property(name: 'FLEX_LIB', value: '${FLEX_HOME}/frameworks/libs')
+          project.ant.property(name: 'FLEX_ANT', value: '${FLEX_HOME}/ant')
+          project.ant.property(name: 'FLEX_ANTLIB', value: '${FLEX_ANT}/lib')
+          project.ant.property(name: 'FLEX_PLAYER_LIB', value: "\${FLEX_LIB}/player/${project.playerVersion}")
+
+          project.ant.taskdef(resource: 'flexTasks.tasks') {
+              classpath {
+                  fileset(dir: '${FLEX_ANTLIB}') {
+                      include(name: 'flexTasks.jar')
+                  }
+              }
+          }
+      }
     }
 
 	private void configureAntWithFlexUnit() {
@@ -215,5 +320,4 @@ class GradleFxPlugin implements Plugin<Project> {
             artifactHandler."${DEFAULT_CONFIGURATION_NAME}" artifact
         }
     }
-
 }

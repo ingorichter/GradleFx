@@ -18,6 +18,10 @@ package org.gradlefx.conventions
 
 import org.gradle.api.Project
 import org.gradlefx.FlexType
+import org.gradle.api.file.SourceDirectorySet
+import org.gradle.api.internal.file.DefaultSourceDirectorySet
+import org.gradle.util.ConfigureUtil
+import org.gradle.api.file.FileCollection
 
 class GradleFxConvention {
 
@@ -70,7 +74,10 @@ class GradleFxConvention {
     def htmlWrapper
 	
 	// FlexUnit properties
-	def flexUnit
+	def flexUnit = ''
+
+    // define sourcesets
+    final SourceDirectorySet sourceSets
 
     def GradleFxConvention(Project project) {
         this.project = project
@@ -110,6 +117,14 @@ class GradleFxConvention {
         project.afterEvaluate {
             initializeEmptyProperties()
         }
+
+        sourceSets = new DefaultSourceDirectorySet('main', project.fileResolver)
+    }
+
+    def sourceSets(Closure closure) {
+        ConfigureUtil.configure(closure, sourceSets);
+        return this;
+//        sourceSets.configure(closure)
     }
 
     public def initializeEmptyProperties() {

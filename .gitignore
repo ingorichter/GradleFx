@@ -1,6 +1,7 @@
 .gradle
 .idea
 build
+out
 GradleFx.iml
 .orig
 /.project

@@ -53,9 +53,12 @@ class Compc extends AbstractCompileTask {
     private List createCompilerArguments() {
         List compilerArguments = []
 
+//        logger.debug "Sources: ${getSource()}"
+ //       logger.debug "Sources: ${getDefaultSource()}"
+
         //add every source path
         project.srcDirs.each { sourcePath ->
-            compilerArguments.add("-source-path+=" + project.file(sourcePath).path)
+            compilerArguments.add("-source-path+=" + "${project.file(sourcePath).path}")
         }
 
         addSourceFilesAndDirectories(compilerArguments)

@@ -18,10 +18,14 @@ import org.gradle.api.artifacts.maven.XmlProvider
 
 apply plugin: 'groovy'
 apply plugin: 'maven'
+apply plugin: 'idea'
+apply plugin: 'code-quality'
 
 group = 'org.gradlefx'
 version = '0.3.0'
 packaging = 'jar'
+
+codeNarcConfigFileName = 'config/codenarc/rules.groovy'
 
 repositories {
     mavenCentral()
@@ -30,6 +34,9 @@ repositories {
 dependencies {
     compile gradleApi()
     groovy group: 'org.codehaus.groovy', name: 'groovy', version: '1.7.10'
+    
+    testCompile "org.spockframework:spock-core:0.5-groovy-1.7",
+                "junit:junit:4.+"
 }
 
 task groovydocJar(type: Jar, dependsOn: groovydoc) {
